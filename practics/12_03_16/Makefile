@@ -1,9 +1,9 @@
 CC=gcc
 CFLAGS=-Wall
 LDFLAGS=
-SOURCES=cat.c
+SOURCES=cat_grep.c
 OBJECTS=$(SOURCES:.c=.o)
-EXECUTABLE=cat
+EXECUTABLE=cat_grep
 
 
 all: $(SOURCES) $(EXECUTABLE)
