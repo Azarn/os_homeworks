@@ -46,6 +46,7 @@ bool parse_buffer(std::string const& input_buffer, std::vector<std::vector<char*
                 return false;
             }
 
+            args.push_back(0);
             out.push_back(args);
             args.clear();
             arg.clear();
@@ -60,9 +61,9 @@ bool parse_buffer(std::string const& input_buffer, std::vector<std::vector<char*
     }
 
     if(!args.empty()) {
+        args.push_back(0);
         out.push_back(args);
     }
-
 
     return !args.empty();
 }
@@ -183,7 +184,7 @@ int main(int argc, char const *argv[]) {
         } else {
             fildes = new int[(parsed_data.size() - 1) * 2];
             for(size_t i = 0; i < parsed_data.size() - 1; ++i) {
-                if (pipe2(&fildes[i * 2], 0) == -1) {
+                if (pipe2(&fildes[i * 2], O_CLOEXEC) == -1) {
                     perror("pipe2()");
                     return errno;
                 }
