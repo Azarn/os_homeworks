@@ -13,16 +13,38 @@ int main(int argc, char** argv) {
 
     int fd = open(argv[1], O_RDONLY);
     if (fd == -1) {
-        printf("Error while opening file!\n");
+        perror("Error while opening file!\n");
         return errno;
     }
 
     char buf[4096];
     size_t cnt;
-    while((cnt = read(fd, buf, 4096)) > 0) {
+    while(1) {
+        cnt = read(fd, buf, 4096);
+        if (cnt == 0) {
+            break;
+        } else if (cnt == -1) {
+            if (errno != EINTR) {
+                perror("Read error occured\n");
+                return errno;
+            } else {
+                perror("Hello from SIGNAL on read");
+            }
+            continue;
+        }
+
         size_t written = 0;
         while (cnt > 0) {
             written = write(1, &buf[written], cnt);
+            if (written == -1) {
+                if (errno != EINTR) {
+                    perror("Write error occured!\n");
+                    return errno;
+                } else {
+                    perror("Hello from SIGNAL on write");
+                }
+                continue;
+            }
             cnt -= written;
         }
     }
