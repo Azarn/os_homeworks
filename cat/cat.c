@@ -3,6 +3,14 @@
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <signal.h>
+
+
+void sig_handler(int signo) {
+    if (signo == SIGUSR1) {
+        perror("Catched SIGUSR1\n");
+    }
+}
 
 
 int main(int argc, char** argv) {
@@ -14,6 +22,11 @@ int main(int argc, char** argv) {
     int fd = open(argv[1], O_RDONLY);
     if (fd == -1) {
         perror("Error while opening file!\n");
+        return errno;
+    }
+
+    if (signal(SIGUSR1, sig_handler) == SIG_ERR) {
+        perror("Cannot catch SIGUSR1");
         return errno;
     }
 
