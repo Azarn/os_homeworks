@@ -15,9 +15,17 @@ void sig_handler(int signo, siginfo_t* siginfo, void* ucontext) {
 
 int main(int argc, char** argv) {
     struct sigaction sa;
+    sigset_t mask;
+    
     bzero(&sa, sizeof(sa));
     sa.sa_sigaction = sig_handler;
     sa.sa_flags = SA_SIGINFO;
+
+    sigemptyset (&mask);
+    sigaddset (&mask, SIGUSR1);
+    sigaddset (&mask, SIGUSR2);
+    sigaddset (&mask, SIGALRM);
+    sa.sa_mask = mask;
 
     if (sigaction(SIGUSR1, &sa, 0) == -1) {
         perror("Cannot catch SIGUSR1");
