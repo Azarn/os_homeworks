@@ -5,12 +5,11 @@
 #include <signal.h>
 
 
-int g_signo, g_pid;
-
+volatile int g_signo, g_pid;
 
 void sig_handler(int signo, siginfo_t* siginfo, void* ucontext) {
     g_signo = signo;
-    g_pid = siginfo->siginfo->si_pid;
+    g_pid = siginfo->si_pid;
 }
 
 
