@@ -5,20 +5,12 @@
 #include <signal.h>
 
 
-void sig_handler(int signo, siginfo_t* siginfo, void* ucontext) {
-    switch(signo) {
-    case SIGUSR1:
-        printf("SIGUSR1 ");
-        break;
-    case SIGUSR2:
-        printf("SIGUSR2 ");
-        break;
-    case SIGALRM:
-        printf("No signals were caught\n");
-        return;
-    }
+int g_signo, g_pid;
 
-    printf("from %d\n", siginfo->si_pid);
+
+void sig_handler(int signo, siginfo_t* siginfo, void* ucontext) {
+    g_signo = signo;
+    g_pid = siginfo->siginfo->si_pid;
 }
 
 
@@ -45,6 +37,17 @@ int main(int argc, char** argv) {
 
     alarm(10);
     pause();
-
+    
+    switch(g_signo) {
+    case SIGUSR1:
+        printf("SIGUSR1 from %d\n", g_pid);
+        break;
+    case SIGUSR2:
+        printf("SIGUSR2 from %d\n", g_pid);
+        break;
+    case SIGALRM:
+        printf("No signals were caught\n");
+        break;
+    }
     return 0;
 }
