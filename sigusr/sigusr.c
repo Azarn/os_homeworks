@@ -5,7 +5,7 @@
 #include <signal.h>
 
 
-volatile int g_signo, g_pid;
+volatile sig_atomic_t g_signo, g_pid;
 
 void sig_handler(int signo, siginfo_t* siginfo, void* ucontext) {
     g_signo = signo;
