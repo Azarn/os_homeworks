@@ -1,8 +1,8 @@
 CC=g++
 CXXFLAGS=-Wall -pedantic -std=c++11
 LDFLAGS=
-SOURCES=midterm.cpp
-OBJECTS=$(SOURCES:.cpp=.o)
+SOURCES=midterm.c
+OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=midterm
 
 
