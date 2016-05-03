@@ -3,7 +3,7 @@ CXXFLAGS=-Wall -pedantic -std=c++11
 LDFLAGS=
 SOURCES=midterm.c
 OBJECTS=$(SOURCES:.c=.o)
-EXECUTABLE=midterm
+EXECUTABLE=simplesh
 
 
 all: $(SOURCES) $(EXECUTABLE)
