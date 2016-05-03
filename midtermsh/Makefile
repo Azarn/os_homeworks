@@ -1,7 +1,7 @@
 CC=g++
 CXXFLAGS=-Wall -pedantic -std=c++11
 LDFLAGS=
-SOURCES=midterm.c
+SOURCES=simplesh.c
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=simplesh
 
