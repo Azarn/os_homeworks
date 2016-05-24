@@ -25,7 +25,7 @@ struct rshd_data {
         unlockpt(ptymfd);
         ptysfd = open(ptsname(ptymfd), O_RDWR);
 
-        pty_events = EPOLLIN | EPOLLOUT;
+        pty_events = EPOLLIN;
         ios.add(ptymfd, pty_events, [this](int event) {
             if (event == EPOLLOUT) {
                 printf("pty EPOLLOUT\n");
