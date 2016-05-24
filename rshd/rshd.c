@@ -2,11 +2,18 @@
 #include "networking.h"
 #include <sys/wait.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <stropts.h>
+#include <string.h>
+#include <stdio.h>
 #include <unordered_map>
+
+
+
+const static char PID_FILE[] = "/tmp/rshd.pid";
 
 
 struct rshd_data {
@@ -155,15 +162,81 @@ private:
 };
 
 
+void daemonize() {
+    int fd = open(PID_FILE, O_RDWR|O_CREAT|O_EXCL, 0644);
+    if (fd < 0) {
+        perror("Cannot create pid file");
+        exit(errno);
+    }
+
+    int pid = fork();
+    if (pid == -1) {
+        perror("fork()");
+        exit(errno);
+    } else if (pid != 0) {
+        exit(0);
+    }
+
+    if (setsid() < 0) {
+        perror("setsid()");
+        exit(errno);
+    }
+
+
+    pid = fork();
+    if (pid == -1) {
+        perror("fork()_2");
+        exit(errno);
+    } else if (pid != 0) {
+        std::string pid_str = std::to_string(pid);
+        if (write(fd, pid_str.data(), pid_str.size()) < 0) {
+            perror("Cannot write pid to file, kill me manually");
+            exit(errno);
+        }
+        exit(0);
+    }
+
+    umask(0);
+    chdir("/");
+
+    for (int i = sysconf(_SC_OPEN_MAX) - 1; i >= 0; --i) {
+        if (i != fd) {
+            close(i);
+        }
+    }
+
+    int null_fd = open("/dev/null", O_RDWR);
+    dup(null_fd);
+    dup(null_fd);
+}
+
+
 int main(int argc, char const *argv[]) {
     int port = 12345;
     if (argc > 2) {
-        printf("Usage: rshd [port]\n");
+        printf("Usage: rshd [port | stop]\n");
         return 0;
     } else if (argc == 2) {
-        port = atoi(argv[1]);
+        if (strcmp(argv[1], "stop") == 0) {
+            int fd;
+            if ((fd = open(PID_FILE, O_RDONLY)) < 0) {
+                  perror("Pid file is not found. May be the server is not running?");
+                  exit(errno);
+            }
+
+            char pid_buf[17];
+            int len = read(fd, pid_buf, 16);
+            pid_buf[len] = 0;
+            kill(atoi(pid_buf), SIGTERM);
+            close(fd);
+            unlink(PID_FILE);
+            return 0;
+        } else {
+            port = atoi(argv[1]);
+        }
     }
 
+    daemonize();
     io_service ios;
     rshd server(ios, port);
     ios.run();
