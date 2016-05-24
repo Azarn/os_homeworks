@@ -288,15 +288,15 @@ void load_command() {
     char buf[BUFFER_SIZE];
 
     fcntl(global_pipe[0], F_SETFL, O_NONBLOCK);
-    int cnt = safe_read(global_pipe[0], buf, BUFFER_SIZE, true);
+    int pipe_cnt = safe_read(global_pipe[0], buf, BUFFER_SIZE, true);
     fcntl(global_pipe[0], F_SETFL, 0);
-    if (cnt != -1) {
-        input_buffer += {buf, static_cast<size_t>(cnt)};
+    if (pipe_cnt != -1) {
+        input_buffer += {buf, static_cast<size_t>(pipe_cnt)};
     }
 
-    // printf("cnt: %d\n", cnt);
+    // printf("cnt: %d\n", pipe_cnt);
 
-    cnt = safe_read(STDIN_FILENO, buf, BUFFER_SIZE);
+    int cnt = safe_read(STDIN_FILENO, buf, BUFFER_SIZE);
     if (cnt == 0) {
         if (input_buffer.size() == 0) {
             // printf("terminating...\n");
@@ -306,13 +306,18 @@ void load_command() {
             close(global_pipe[1]);
             return;
         }
+    } else {
+        input_buffer += {buf, static_cast<size_t>(cnt)};
     }
-
-    input_buffer += {buf, static_cast<size_t>(cnt)};
 
     size_t pos = input_buffer.find(NEWLINE);
     if (pos == std::string::npos) {
-        return;
+        if (cnt == 0 && pipe_cnt < (int)BUFFER_SIZE) {
+            input_buffer += NEWLINE;
+            pos = input_buffer.size() - 1;
+        } else {
+            return;
+        }
     }
 
     if (pos == 0) {
