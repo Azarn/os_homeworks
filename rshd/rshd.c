@@ -154,6 +154,7 @@ struct rshd: tcp_server {
             printf("%d - connection closed\n", con.get_fd());
             auto it = cons.find(con.get_fd());
             delete it->second;
+            cons.erase(it);
         });
     }
 

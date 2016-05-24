@@ -76,8 +76,11 @@ struct io_service {
                 exit(errno);
             }
             for (int i = 0; i < num_ev; ++i) {
-                printf("events for fd=%d, events=%d\n", events[i].data.fd, events[i].events);
-                handlers[events[i].data.fd](events[i].events);
+                auto it = handlers.find(events[i].data.fd);
+                if (it != handlers.end()) {
+                    printf("events for fd=%d, events=%d\n", events[i].data.fd, events[i].events);
+                    it->second(events[i].events);
+                }
             }
         }
     }
