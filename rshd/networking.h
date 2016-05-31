@@ -14,6 +14,7 @@
 #include <functional>
 #include <string>
 #include <errno.h>
+#include <fcntl.h>
 
 
 struct tcp_server;
@@ -69,7 +70,6 @@ struct io_service {
         #define MAX_EVENTS 1000
         epoll_event events[MAX_EVENTS];
         while(!is_terminating) {
-            // printf("loop\n");
             int num_ev = epoll_wait(epoll_fd, events, MAX_EVENTS, 1000);
             if (num_ev == -1) {
                 perror("epoll_wait1");
@@ -77,8 +77,8 @@ struct io_service {
             }
             for (int i = 0; i < num_ev; ++i) {
                 auto it = handlers.find(events[i].data.fd);
+                printf("events for fd=%d, events=%d\n", events[i].data.fd, events[i].events);
                 if (it != handlers.end()) {
-                    printf("events for fd=%d, events=%d\n", events[i].data.fd, events[i].events);
                     it->second(events[i].events);
                 }
             }
@@ -133,6 +133,10 @@ struct connection {
         on_close.push_back(func);
     }
 
+    void add_on_eof_read_handler(confunc_t func) {
+        on_read_eof.push_back(func);
+    }
+
     void add_to_ios(int listen_events) {
         events = listen_events;
         ios->add(sock, events, std::bind(&connection::parse_event, this, std::placeholders::_1));
@@ -144,10 +148,26 @@ struct connection {
     }
 
     std::string read() {
+        std::string res;
         char buf[1500];
-        int cnt = recv(sock, buf, sizeof(buf), 0);
-        printf("recv()-> %d\n", cnt);
-        return std::string(buf, cnt);
+
+        int cnt;
+        while (true) {
+            cnt = recv(sock, buf, sizeof(buf), 0);
+            printf("recv()-> %d, errno=%d\n", cnt, errno);
+            if (cnt == 0) {
+                call_handlers(on_read_eof);
+            } else if (cnt != -1) {
+                res += std::string({buf, static_cast<unsigned long>(cnt)});
+                printf("recv() data[end]=%d, data[end+1]=%d\n", buf[cnt - 1], buf[cnt]);
+            } else if (errno == EAGAIN) {
+                break;
+            } else {
+                perror("read()");
+                exit(errno);
+            }
+        }
+        return res;
     }
 
     // int write(char* buffer, size_t buffer_size) {
@@ -204,6 +224,10 @@ protected:
             printf("EPOLLRDHUP\n");
             close();
         } else {
+            if (events & EPOLLERR) {
+                printf("EPOLLERR\n");
+            }
+
             if (events & EPOLLIN) {
                 printf("EPOLLIN\n");
                 call_handlers(on_read_ready);
@@ -226,7 +250,7 @@ private:
 
     int sock, events;
     io_service* ios;
-    std::vector<confunc_t> on_read_ready, on_write_ready, on_close;
+    std::vector<confunc_t> on_read_ready, on_write_ready, on_close, on_read_eof;
 };
 
 
@@ -251,8 +275,10 @@ struct tcp_server {
         printf("tcp_server, before add_on_read_ready_handler\n");
         listen_conn.add_on_read_ready_handler([this](connection& conn) {
             int in_sock = accept(conn.get_fd(), nullptr, nullptr);
+            fcntl(in_sock, F_SETFL, O_NONBLOCK);
+
             // TODO: this is not thread-safe (e.g. events could be called before on_new_connection(...))
-            on_new_connection(construct_connection(in_sock, EPOLLIN | EPOLLRDHUP));
+            on_new_connection(construct_connection(in_sock, EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP));
         });
 
         listen_conn.add_to_ios(EPOLLIN);
@@ -276,7 +302,7 @@ struct tcp_server {
         ((sockaddr_in*)(r->ai_addr))->sin_port = htons(port);
         printf("getaddrinfo - out\n");
 
-        int sock = socket(AF_INET, SOCK_STREAM, 0 /*SOCK_NONBLOCK*/);
+        int sock = socket(AF_INET, SOCK_STREAM, SOCK_NONBLOCK);
         if (connect(sock, r->ai_addr, r->ai_addrlen) == -1) {
             printf("connect() error %d\n", errno);
         }

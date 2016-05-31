@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stropts.h>
 #include <termios.h>
 #include <stropts.h>
 #include <string.h>
@@ -25,27 +26,36 @@ struct rshd_data {
         unlockpt(ptymfd);
         ptysfd = open(ptsname(ptymfd), O_RDWR);
 
-        pty_events = EPOLLIN;
+        pty_events = EPOLLIN | EPOLLRDHUP;
         ios.add(ptymfd, pty_events, [this](int event) {
-            if (event == EPOLLOUT) {
+            if (event & EPOLLOUT) {
                 printf("pty EPOLLOUT\n");
                 if (buf_in.size() == 0) {
                     enable_in(false);
                 } else {
                     write(ptymfd, buf_in.data(), buf_in.size());
                     buf_in.clear();
-                    client_con.set_read_state(true);
+                    // client_con.set_read_state(true);
                 }
-            } else if (event == EPOLLIN) {
+            }
+            if (event & EPOLLIN) {
                 printf("pty EPOLLIN\n");
                 if (buf_out.size() != 0) {
                     enable_out(false);
                 } else {
                     char buf[1500];
                     int cnt = read(ptymfd, buf, sizeof(buf));
+                    printf("pty read() -> %d\n", cnt);
                     buf_out = std::string(buf, cnt);
                     client_con.set_write_state(true);
                 }
+            }
+            if (event & EPOLLHUP) {
+                printf("pty EPOLLHUP\n");
+                client_con.close();
+            }
+            if (event & ~(EPOLLIN|EPOLLOUT|EPOLLHUP)) {
+                printf("pty UNKNOWN event: %d\n", event);
             }
         });
 
@@ -54,7 +64,8 @@ struct rshd_data {
 
     ~rshd_data() {
         ios.remove(ptymfd);
-        kill(shell, SIGKILL);
+        printf("Terminating shell...\n");
+        kill(shell, SIGINT);
         close(ptymfd);
     }
 
@@ -137,8 +148,12 @@ struct rshd: tcp_server {
             printf("%d - read_ready\n", con.get_fd());
             rshd_data* data = cons.find(con.get_fd())->second;
             data->buf_in = con.read();
-            con.set_read_state(false);
+            // con.set_read_state(false);
             data->enable_in(true);
+        });
+
+        new_con.add_on_eof_read_handler([this](connection& con) {
+            con.close();
         });
 
         new_con.add_on_write_ready_handler([this](connection& con) {
@@ -237,7 +252,7 @@ int main(int argc, char const *argv[]) {
         }
     }
 
-    daemonize();
+    // daemonize();
     io_service ios;
     rshd server(ios, port);
     ios.run();
