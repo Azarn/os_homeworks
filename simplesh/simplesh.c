@@ -280,7 +280,7 @@ void put_stdin_to_pipe() {
         return;
     }
 
-    safe_write(global_pipe[1], buf, BUFFER_SIZE);
+    safe_write(global_pipe[1], buf, cnt);
 }
 
 void load_command() {
